@@ -15,7 +15,10 @@ func InteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	name := i.ApplicationCommandData().Name
 
 	if slash, ok := command.Slashes[name]; ok {
-		slash.Handler(s, i)
+		err := slash.Handler(s, i)
+		if err != nil {
+			log.Printf("cmd: %v, err: %v", name, err)
+		}
 	}
 }
 

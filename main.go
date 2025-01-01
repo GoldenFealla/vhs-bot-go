@@ -22,9 +22,10 @@ var (
 func registerCommands(s *discordgo.Session) {
 	log.Println("Adding commands...")
 	for _, v := range command.Slashes {
-		_, err := s.ApplicationCommandCreate(s.State.User.ID, "", v.Data)
+		data := v.Data()
+		_, err := s.ApplicationCommandCreate(s.State.User.ID, "", data)
 		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Data.Name, err)
+			log.Panicf("Cannot create '%v' command: %v", data.Name, err)
 		}
 	}
 }

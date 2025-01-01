@@ -4,12 +4,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type SlashCommand struct {
-	Data    *discordgo.ApplicationCommand
-	Handler func(s *discordgo.Session, i *discordgo.InteractionCreate)
+type Slash interface {
+	Data() *discordgo.ApplicationCommand
+	Handler(s *discordgo.Session, i *discordgo.InteractionCreate) error
 }
 
-var Slashes = map[string]*SlashCommand{
+var Slashes = map[string]Slash{
 	"server": ServerSlashCommand(),
 	"user":   UserSlashCommand(),
 }
