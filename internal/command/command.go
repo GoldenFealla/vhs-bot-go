@@ -10,6 +10,7 @@ type Slash interface {
 }
 
 var Slashes = map[string]Slash{
-	"server": ServerSlashCommand(),
-	"user":   UserSlashCommand(),
+	"server":  ServerSlashCommand(),
+	"user":    UserSlashCommand(),
+	"youtube": YoutubeSlashCommand(),
 }

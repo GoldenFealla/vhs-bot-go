@@ -37,7 +37,7 @@ func (sc serverSlash) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 	presenceMembers := guild.ApproximatePresenceCount
 
 	embed := discordgo.MessageEmbed{
-		Title: "Server asic information",
+		Title: "Server basic information",
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name: fmt.Sprintf("ID: %v", guild.ID),

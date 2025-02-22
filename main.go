@@ -75,6 +75,8 @@ func main() {
 	session.AddHandler(handler.Ready)
 	session.AddHandler(handler.InteractionCreate)
 
+	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildVoiceStates
+
 	err = session.Open()
 	if err != nil {
 		log.Fatalf("could not open session: %s", err)
