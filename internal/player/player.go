@@ -2,59 +2,61 @@ package player
 
 import (
 	"fmt"
+	"goldenfealla/vhs-bot/internal/encode"
+	"log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/kkdai/youtube/v2"
 )
 
-var client = youtube.Client{}
-
-func Play(s *discordgo.Session, i *discordgo.InteractionCreate, url string) error {
-	// Join the provided voice channel.
-	g, err := s.State.Guild(i.GuildID)
-	if err != nil {
-		// Could not find guild.
-		return fmt.Errorf("no guild found")
-	}
-
-	cID := ""
-
-	for _, vs := range g.VoiceStates {
-		if vs.UserID == i.Member.User.ID {
-			cID = vs.ChannelID
-			break
-		}
-		return fmt.Errorf("user not in voice")
-	}
-
-	vc, err := s.ChannelVoiceJoin(g.ID, cID, false, true)
-	if err != nil {
-		return fmt.Errorf("Error joining: %v", err)
-	}
-
-	// Sleep for a specified amount of time before playing the sound
-	time.Sleep(250 * time.Millisecond)
-
-	// process video
-	video, err := client.GetVideo(url)
-	if err != nil {
-		return err
-	}
-
-	audioFormats := video.Formats.Type("audio/mp4")
-
-	_, err = client.GetStreamURL(video, &audioFormats[len(audioFormats)-1])
-	if err != nil {
-		return err
-	}
-
-	// Start speaking.
+func process(vc *discordgo.VoiceConnection, vi *VideoData) {
 	vc.Speaking(true)
 
-	vc.Speaking(false)
+	outputChan := make(chan []byte, 64)
+	go func() {
+		err := encode.Encode(vi.RequestedFormats[1].Url, outputChan)
+		log.Println(err)
+	}()
 
-	// Sleep for a specificed amount of time before ending.
+	for data := range outputChan {
+		vc.OpusSend <- data
+	}
+
+	vc.Speaking(false)
 	time.Sleep(250 * time.Millisecond)
-	return nil
+
+	vc.Disconnect()
+}
+
+func GetChannelID(g *discordgo.Guild, userID string) (channelID string, err error) {
+	isFound := false
+
+	for _, vs := range g.VoiceStates {
+		if vs.UserID == userID {
+			channelID = vs.ChannelID
+			isFound = true
+			break
+		}
+	}
+
+	if isFound {
+		return channelID, nil
+	}
+
+	return "", fmt.Errorf("no channel found")
+}
+
+func Join(s *discordgo.Session, guildID string, channelID string) (*discordgo.VoiceConnection, error) {
+	return s.ChannelVoiceJoin(guildID, channelID, false, true)
+}
+
+func Play(vc *discordgo.VoiceConnection, url string) (*VideoData, error) {
+	vi, err := Info(url)
+	if err != nil {
+		return nil, fmt.Errorf("error get video info: %v", err)
+	}
+
+	go process(vc, vi)
+
+	return vi, nil
 }

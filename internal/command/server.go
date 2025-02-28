@@ -24,13 +24,12 @@ func (sc serverSlash) Data() *discordgo.ApplicationCommand {
 func (sc serverSlash) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	guild, err := s.GuildWithCounts(i.GuildID)
 	if err != nil {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: fmt.Sprintf("Error: %v", err.Error()),
 			},
 		})
-		return err
 	}
 
 	totalMembers := guild.ApproximateMemberCount

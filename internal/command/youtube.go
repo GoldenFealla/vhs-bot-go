@@ -1,6 +1,8 @@
 package command
 
 import (
+	"fmt"
+	"goldenfealla/vhs-bot/config"
 	"goldenfealla/vhs-bot/internal/player"
 
 	"github.com/bwmarrin/discordgo"
@@ -20,7 +22,7 @@ func (sc youtubeSlash) Data() *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "url",
-				Description: "This is the url",
+				Description: "This is the url needed to extract",
 				Required:    true,
 			},
 		},
@@ -36,12 +38,43 @@ func (sc youtubeSlash) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 
 	url := optionMap["url"].StringValue()
 
-	go player.Play(s, i, url)
+	DeferReply(s, i)
 
-	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Done",
+	g, err := s.State.Guild(i.GuildID)
+	if err != nil {
+		EditReplyString(s, i, err.Error())
+		return err
+	}
+
+	channelID, err := player.GetChannelID(g, i.Member.User.ID)
+	if err != nil {
+		EditReplyString(s, i, err.Error())
+		return err
+	}
+
+	vc, err := player.Join(s, g.ID, channelID)
+	if err != nil {
+		EditReplyString(s, i, err.Error())
+		return err
+	}
+
+	vi, err := player.Play(vc, url)
+	if err != nil {
+		EditReplyString(s, i, err.Error())
+		return err
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title: vi.Title,
+		Image: &discordgo.MessageEmbedImage{
+			URL: vi.Thumbnail,
 		},
-	})
+		Color: config.DEFAULT_COLOR,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Duration: %v", vi.DurationString),
+		},
+	}
+
+	EditReplyEmbed(s, i, embed)
+	return nil
 }
