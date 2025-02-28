@@ -1,9 +1,12 @@
 package player
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
-	"os"
+	"log"
+	URL "net/url"
 	"os/exec"
 )
 
@@ -19,7 +22,7 @@ type VideoData struct {
 	RequestedFormats []Format `json:"requested_formats"`
 }
 
-func fetch(url string, w io.WriteCloser) error {
+func fetch(url string, w io.WriteCloser, errWriter io.Writer) error {
 	args := []string{
 		"--extractor-args",
 		"youtube:skip=hls,dash,translated_subs",
@@ -34,7 +37,7 @@ func fetch(url string, w io.WriteCloser) error {
 	}
 
 	command := exec.Command("yt-dlp", args...)
-	command.Stderr = os.Stderr
+	command.Stderr = errWriter
 	command.Stdout = w
 	defer w.Close()
 
@@ -52,16 +55,32 @@ func fetch(url string, w io.WriteCloser) error {
 }
 
 func Info(url string) (*VideoData, error) {
+	_, err := URL.ParseRequestURI(url)
+	if err != nil {
+		return nil, err
+	}
+
 	var data VideoData
 
 	r, w := io.Pipe()
 	defer r.Close()
 
-	go fetch(url, w)
+	var errBuf bytes.Buffer
+
+	go func() {
+		err := fetch(url, w, &errBuf)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 
 	decoder := json.NewDecoder(r)
 	if err := decoder.Decode(&data); err != nil {
 		return nil, err
+	}
+
+	if errBuf.Len() > 0 {
+		return nil, errors.New(errBuf.String())
 	}
 
 	return &data, nil

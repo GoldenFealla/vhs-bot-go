@@ -13,9 +13,12 @@ func process(vc *discordgo.VoiceConnection, vi *VideoData) {
 	vc.Speaking(true)
 
 	outputChan := make(chan []byte, 64)
+
 	go func() {
 		err := encode.Encode(vi.RequestedFormats[1].Url, outputChan)
-		log.Println(err)
+		if err != nil {
+			log.Println(err)
+		}
 	}()
 
 	for data := range outputChan {
