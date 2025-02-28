@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 
 	"github.com/bwmarrin/discordgo"
@@ -52,6 +53,17 @@ func run() {
 	sigch := make(chan os.Signal, 1)
 	signal.Notify(sigch, os.Interrupt)
 	<-sigch
+}
+func init() {
+	_, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		log.Fatal("ffmpeg required")
+	}
+
+	_, err = exec.LookPath("yt-dlp")
+	if err != nil {
+		log.Fatal("yt-dlp required")
+	}
 }
 
 func init() {
