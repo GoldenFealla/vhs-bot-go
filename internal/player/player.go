@@ -1,6 +1,7 @@
 package player
 
 import (
+	"errors"
 	"fmt"
 	"goldenfealla/vhs-bot/internal/encode"
 	"log"
@@ -15,7 +16,21 @@ func process(vc *discordgo.VoiceConnection, vi *VideoData) {
 	outputChan := make(chan []byte, 64)
 
 	go func() {
-		err := encode.Encode(vi.RequestedFormats[1].Url, outputChan)
+		var err error
+
+		if len(vi.RequestedDownloads) == 0 {
+			err = errors.New("something wrong")
+		} else {
+			switch vi.Extractor {
+			case YOUTUBE:
+				err = encode.Encode(vi.RequestedDownloads[0].RequestedFormats[1].Url, outputChan)
+			case BANDCAMP:
+				err = encode.Encode(vi.RequestedDownloads[0].Url, outputChan)
+			default:
+				err = errors.New("not supported site")
+			}
+		}
+
 		if err != nil {
 			log.Println(err)
 		}

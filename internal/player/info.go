@@ -10,16 +10,29 @@ import (
 	"os/exec"
 )
 
+type Extractor = string
+
+var (
+	YOUTUBE  Extractor = "Youtube"
+	BANDCAMP Extractor = "Bandcamp"
+)
+
 type Format struct {
 	Url string `json:"url"`
 }
 
-type VideoData struct {
-	ID               string   `json:"id"`
-	Title            string   `json:"title"`
-	Thumbnail        string   `json:"thumbnail"`
-	DurationString   string   `json:"duration_string"`
+type Download struct {
 	RequestedFormats []Format `json:"requested_formats"`
+	Url              string   `json:"url"`
+}
+
+type VideoData struct {
+	ID                 string     `json:"id"`
+	Title              string     `json:"title"`
+	Thumbnail          string     `json:"thumbnail"`
+	DurationString     string     `json:"duration_string"`
+	Extractor          Extractor  `json:"extractor"`
+	RequestedDownloads []Download `json:"requested_downloads"`
 }
 
 func fetch(url string, w io.WriteCloser, errWriter io.Writer) error {
