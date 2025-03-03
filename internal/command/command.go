@@ -12,9 +12,9 @@ type Slash interface {
 }
 
 var Slashes = map[string]Slash{
-	"server":  ServerSlashCommand(),
-	"user":    UserSlashCommand(),
-	"youtube": YoutubeSlashCommand(),
+	"server": ServerSlashCommand(),
+	"user":   UserSlashCommand(),
+	"play":   PlaySlashCommand(),
 }
 
 func DeferReply(s *discordgo.Session, i *discordgo.InteractionCreate) {

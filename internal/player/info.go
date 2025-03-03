@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
-	"log"
 	URL "net/url"
 	"os/exec"
 )
@@ -13,29 +11,27 @@ import (
 type Extractor = string
 
 var (
-	YOUTUBE  Extractor = "Youtube"
-	BANDCAMP Extractor = "Bandcamp"
+	YOUTUBE  Extractor = "youtube"
+	BANDCAMP Extractor = "bandcamp"
 )
 
-type Format struct {
-	Url string `json:"url"`
-}
-
-type Download struct {
-	RequestedFormats []Format `json:"requested_formats"`
-	Url              string   `json:"url"`
-}
-
 type VideoData struct {
-	ID                 string     `json:"id"`
-	Title              string     `json:"title"`
-	Thumbnail          string     `json:"thumbnail"`
-	DurationString     string     `json:"duration_string"`
-	Extractor          Extractor  `json:"extractor"`
-	RequestedDownloads []Download `json:"requested_downloads"`
+	ID             string
+	URL            string
+	Title          string
+	Channel        string
+	ChannelURL     string
+	Thumbnail      string
+	DurationString string
+	StreamURL      string
 }
 
-func fetch(url string, w io.WriteCloser, errWriter io.Writer) error {
+func MusicInfo(url string) (*VideoData, error) {
+	_, err := URL.ParseRequestURI(url)
+	if err != nil {
+		return nil, err
+	}
+
 	args := []string{
 		"--extractor-args",
 		"youtube:skip=hls,dash,translated_subs",
@@ -49,52 +45,52 @@ func fetch(url string, w io.WriteCloser, errWriter io.Writer) error {
 		url,
 	}
 
-	command := exec.Command("yt-dlp", args...)
-	command.Stderr = errWriter
-	command.Stdout = w
-	defer w.Close()
+	// dw: stdout, ew: stderr
+	var dw bytes.Buffer
+	var ew bytes.Buffer
 
-	err := command.Start()
+	command := exec.Command("yt-dlp", args...)
+	command.Stderr = &ew
+	command.Stdout = &dw
+
+	err = command.Start()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = command.Wait()
 	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func Info(url string) (*VideoData, error) {
-	_, err := URL.ParseRequestURI(url)
-	if err != nil {
 		return nil, err
 	}
 
-	var data VideoData
-
-	r, w := io.Pipe()
-	defer r.Close()
-
-	var errBuf bytes.Buffer
-
-	go func() {
-		err := fetch(url, w, &errBuf)
-		if err != nil {
-			log.Println(err)
-		}
-	}()
-
-	decoder := json.NewDecoder(r)
-	if err := decoder.Decode(&data); err != nil {
+	var data map[string]any
+	if err := json.Unmarshal(dw.Bytes(), &data); err != nil {
 		return nil, err
 	}
 
-	if errBuf.Len() > 0 {
-		return nil, errors.New(errBuf.String())
+	if ew.Len() > 0 {
+		return nil, errors.New(ew.String())
 	}
 
-	return &data, nil
+	var streamURL string
+
+	switch data["extractor"].(string) {
+	case YOUTUBE:
+		streamURL = data["requested_formats"].([]any)[1].(map[string]any)["url"].(string)
+	case BANDCAMP:
+		streamURL = data["requested_downloads"].([]any)[1].(map[string]any)["url"].(string)
+	}
+
+	VideoData := &VideoData{
+		ID:             data["id"].(string),
+		URL:            data["webpage_url"].(string),
+		Title:          data["title"].(string),
+		Channel:        data["channel"].(string),
+		ChannelURL:     data["channel_url"].(string),
+		Thumbnail:      data["thumbnail"].(string),
+		DurationString: data["duration_string"].(string),
+		StreamURL:      streamURL,
+	}
+
+	return VideoData, nil
 }

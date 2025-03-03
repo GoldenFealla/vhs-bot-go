@@ -8,16 +8,16 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type youtubeSlash struct{}
+type playSlash struct{}
 
-func YoutubeSlashCommand() *youtubeSlash {
-	return &youtubeSlash{}
+func PlaySlashCommand() *playSlash {
+	return &playSlash{}
 }
 
-func (sc youtubeSlash) Data() *discordgo.ApplicationCommand {
+func (sc playSlash) Data() *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
-		Name:        "youtube",
-		Description: "Extract youtube info",
+		Name:        "play",
+		Description: "Extract play info",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionString,
@@ -29,7 +29,7 @@ func (sc youtubeSlash) Data() *discordgo.ApplicationCommand {
 	}
 }
 
-func (sc youtubeSlash) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (sc playSlash) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	options := i.ApplicationCommandData().Options
 	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
@@ -37,8 +37,11 @@ func (sc youtubeSlash) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	url := optionMap["url"].StringValue()
-
 	DeferReply(s, i)
+
+	if player.Players[i.GuildID] == nil {
+		player.Players[i.GuildID] = player.NewPlayer()
+	}
 
 	g, err := s.State.Guild(i.GuildID)
 	if err != nil {
@@ -46,26 +49,32 @@ func (sc youtubeSlash) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		return err
 	}
 
-	channelID, err := player.GetChannelID(g, i.Member.User.ID)
-	if err != nil {
-		EditReplyString(s, i, err.Error())
-		return err
+	channelID := ""
+	isFound := false
+
+	for _, vs := range g.VoiceStates {
+		if vs.UserID == i.Member.User.ID {
+			channelID = vs.ChannelID
+			isFound = true
+			break
+		}
 	}
 
-	vc, err := player.Join(s, g.ID, channelID)
-	if err != nil {
-		EditReplyString(s, i, err.Error())
-		return err
+	if !isFound {
+		EditReplyString(s, i, "no channel found or user is not in voice")
+		return fmt.Errorf("no channel found or user is not in voice")
 	}
 
-	vi, err := player.Play(vc, url)
+	vi, err := player.Players[i.GuildID].Play(s, g.ID, channelID, url)
 	if err != nil {
 		EditReplyString(s, i, err.Error())
 		return err
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Title: vi.Title,
+		URL:         vi.URL,
+		Title:       vi.Title,
+		Description: fmt.Sprintf("**Channel: [%v](%v)**", vi.Channel, vi.ChannelURL),
 		Image: &discordgo.MessageEmbedImage{
 			URL: vi.Thumbnail,
 		},
